@@ -1,5 +1,4 @@
 use anyhow::{Context, Ok, Result};
-use std::fmt::format;
 use std::fs;
 use std::fs::File;
 use std::io;
@@ -24,7 +23,7 @@ fn counter_handling(full_counter_path: String) -> Result<()> {
         .read(true)
         .write(true)
         .open(&full_counter_path)
-        .with_context(|| format!("could not open the file `{}`", &full_counter_path))?;
+        .with_context(|| format!("error: could not open the file `{}`", &full_counter_path))?;
 
     let mut buffer = String::new();
     let mut counter: u64 = current_counter
@@ -32,7 +31,12 @@ fn counter_handling(full_counter_path: String) -> Result<()> {
         .unwrap()
         .to_string()
         .parse()
-        .unwrap();
+        .with_context(|| {
+            format!(
+                "error: unable to parse the String of the counter of the file `{}` into a number",
+                &full_counter_path
+            )
+        })?;
 
     //setting up stdout and going into raw mode
     let mut stdout = stdout().into_raw_mode().unwrap();
@@ -58,7 +62,7 @@ fn counter_handling(full_counter_path: String) -> Result<()> {
                 println!("{}", counter);
                 fs::write(&full_counter_path, &counter.to_string()).with_context(|| {
                     format!(
-                        "could not increment the counter of the file `{}`",
+                        "error: could not increment the counter of the file `{}`",
                         &full_counter_path
                     )
                 })?;
@@ -68,7 +72,7 @@ fn counter_handling(full_counter_path: String) -> Result<()> {
                 println!("{}", counter);
                 fs::write(&full_counter_path, &counter.to_string()).with_context(|| {
                     format!(
-                        "could not decrement the counter of the file `{}`",
+                        "error: could not decrement the counter of the file `{}`",
                         &full_counter_path
                     )
                 })?;
@@ -93,8 +97,9 @@ fn add_counter(counters_list: &mut Vec<String>) -> Result<()> {
             println!("error: The counter already exist!");
         } else {
             counters_list.push(file_name);
-            let mut new_file = File::create(&full_counter_path)
-                .with_context(|| format!("could not create the file `{}`", &full_counter_path))?;
+            let mut new_file = File::create(&full_counter_path).with_context(|| {
+                format!("error: could not create the file `{}`", &full_counter_path)
+            })?;
             write!(&mut new_file, "0").unwrap();
             println!("The counter has succesfully been created");
             break;
@@ -117,16 +122,52 @@ fn select_counter() -> Result<()> {
 
 fn show_counters(counters_list: &mut Vec<String>) -> Result<()> {
     for counter in counters_list {
-        //let mut file_path = format!("{}{}", counter, ".txt");
-        //let mut contents = fs::read_to_string(&file_path)
-        //  .with_context(|| format!("could not read the file `{}`", &file_path))?;
-        //println!("{} {}", counter, contents);
-        println!("{}", counter);
+        let file_path = format!("src/counters/{}{}", counter, ".txt");
+        let mut file = File::open(&file_path)
+            .with_context(|| format!("error: could not open the file `{}`", &file_path))?;
+        let mut contents = String::new();
+        file.read_to_string(&mut contents)
+            .with_context(|| format!("error: unable to read the file `{}`", &file_path))?;
+        println!("{} {}", counter, contents);
     }
     Ok(())
 }
-fn reset_counter() {}
-fn delete_counter() {}
+fn reset_counter() -> Result<()> {
+    loop {
+        println!("Enter a counter name: ");
+        let full_counter_path = user_input_for_counter_name();
+
+        if !Path::new(&full_counter_path).exists() {
+            println!("error: The counter doesn't exist!");
+        } else {
+            let mut file = File::create(&full_counter_path).with_context(|| {
+                format!("error: could not open the file `{}`", &full_counter_path)
+            })?;
+            write!(&mut file, "0").unwrap();
+            println!("The counter has succesfully been reseted");
+            break;
+        }
+    }
+    Ok(())
+}
+
+fn delete_counter() -> Result<()> {
+    loop {
+        println!("Enter a counter name: ");
+        let full_counter_path = user_input_for_counter_name();
+
+        if !Path::new(&full_counter_path).exists() {
+            println!("error: The counter doesn't exist!");
+        } else {
+            fs::remove_file(&full_counter_path).with_context(|| {
+                format!("error: could not remove the file `{}`", &full_counter_path)
+            })?;
+            println!("The counter has succesfully been deleted");
+            break;
+        }
+    }
+    Ok(())
+}
 
 fn main() {
     let mut counters_list: Vec<String> = vec![];
@@ -150,10 +191,11 @@ fn main() {
             "1" => add_counter(&mut counters_list),
             "2" => select_counter(),
             "3" => show_counters(&mut counters_list),
-            "4" => Ok(reset_counter()),
-            "5" => Ok(delete_counter()),
+            "4" => reset_counter(),
+            "5" => delete_counter(),
             "q" | "Q" => break,
             &_ => Ok(println!("Bad selection. You must choose between 1 and 6.")),
-        };
+        }
+        .ok();
     }
 }
