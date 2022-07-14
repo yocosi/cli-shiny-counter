@@ -1,4 +1,5 @@
-use anyhow::{Context, Result};
+use anyhow::{Context, Ok, Result};
+use std::fmt::format;
 use std::fs;
 use std::fs::File;
 use std::io;
@@ -13,7 +14,8 @@ fn user_input_for_counter_name() -> String {
     io::stdin()
         .read_line(&mut counter_name)
         .expect("error: unable to read the name for the new counter.");
-    let full_counter_path = format!("src/counters/{}{}", counter_name, ".txt");
+    let counter_path = format!("src/counters/{}{}", counter_name, ".txt");
+    let full_counter_path = counter_path.replace("\n", "");
     return full_counter_path;
 }
 
@@ -80,14 +82,17 @@ fn counter_handling(full_counter_path: String) -> Result<()> {
     Ok(())
 }
 
-fn add_counter() -> Result<()> {
+fn add_counter(counters_list: &mut Vec<String>) -> Result<()> {
     loop {
         println!("Enter a counter name: ");
         let full_counter_path = user_input_for_counter_name();
+        let mut file_name = full_counter_path.replace("src/counters/", "");
+        file_name = file_name.replace(".txt", "");
 
         if Path::new(&full_counter_path).exists() {
             println!("error: The counter already exist!");
         } else {
+            counters_list.push(file_name);
             let mut new_file = File::create(&full_counter_path)
                 .with_context(|| format!("could not create the file `{}`", &full_counter_path))?;
             write!(&mut new_file, "0").unwrap();
@@ -110,11 +115,21 @@ fn select_counter() -> Result<()> {
     }
 }
 
-fn show_counters() {}
+fn show_counters(counters_list: &mut Vec<String>) -> Result<()> {
+    for counter in counters_list {
+        //let mut file_path = format!("{}{}", counter, ".txt");
+        //let mut contents = fs::read_to_string(&file_path)
+        //  .with_context(|| format!("could not read the file `{}`", &file_path))?;
+        //println!("{} {}", counter, contents);
+        println!("{}", counter);
+    }
+    Ok(())
+}
 fn reset_counter() {}
 fn delete_counter() {}
 
 fn main() {
+    let mut counters_list: Vec<String> = vec![];
     loop {
         println!(
             "
@@ -132,9 +147,9 @@ fn main() {
             .expect("error: unable to read the user input");
 
         match user_input.as_str().trim() {
-            "1" => add_counter(),
+            "1" => add_counter(&mut counters_list),
             "2" => select_counter(),
-            "3" => Ok(show_counters()),
+            "3" => show_counters(&mut counters_list),
             "4" => Ok(reset_counter()),
             "5" => Ok(delete_counter()),
             "q" | "Q" => break,
