@@ -8,17 +8,24 @@ use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 
+// Get the input of the user and return the path
 fn user_input_for_counter_name() -> String {
     let mut counter_name = String::new();
     io::stdin()
         .read_line(&mut counter_name)
         .expect("error: unable to read the name for the new counter.");
-    let counter_path = format!("src/counters/{}{}", counter_name, ".txt");
-    let full_counter_path = counter_path.replace("\n", "");
-    return full_counter_path;
+    if counter_name == "q\n" || counter_name == "Q\n" {
+        return counter_name.replace("\n", "");
+    } else {
+        let counter_path = format!("src/counters/{}{}", counter_name, ".txt");
+        let full_counter_path = counter_path.replace("\n", "");
+        return full_counter_path;
+    }
 }
 
+// Handle the counter: Open the file needed, parse the content of the file to a number, clear the terminal and allow the user to press the necessary keys to modify the file
 fn counter_handling(full_counter_path: String) -> Result<()> {
+    // File::options() used here to be able to write in the file with the .write(true) method
     let mut current_counter = File::options()
         .read(true)
         .write(true)
@@ -86,14 +93,18 @@ fn counter_handling(full_counter_path: String) -> Result<()> {
     Ok(())
 }
 
+// Create the txt file and write 0 in it to make it become a new counter.
+// And this function takes counters_list as a parameter to push the new counter in it to be able to use it for the listing of all the counter in the show_counters() function
 fn add_counter(counters_list: &mut Vec<String>) -> Result<()> {
     loop {
-        println!("Enter a counter name: ");
+        println!("Enter a counter name (or `q` to go back to the main menu): ");
         let full_counter_path = user_input_for_counter_name();
         let mut file_name = full_counter_path.replace("src/counters/", "");
         file_name = file_name.replace(".txt", "");
 
-        if Path::new(&full_counter_path).exists() {
+        if full_counter_path == "q" || full_counter_path == "Q" {
+            break;
+        } else if Path::new(&full_counter_path).exists() {
             println!("error: The counter already exist!");
         } else {
             counters_list.push(file_name);
@@ -107,19 +118,25 @@ fn add_counter(counters_list: &mut Vec<String>) -> Result<()> {
     }
     Ok(())
 }
+
+// This function select the counter that the user wants to use and call the counter_handling() function to handle all the counters mechanics
 fn select_counter() -> Result<()> {
     loop {
-        println!("Enter the name of the counter that you want to select: ");
+        println!("Enter the name of the counter that you want to select (or `q` to go back to the main menu): ");
         let full_counter_path = user_input_for_counter_name();
 
-        if !Path::new(&full_counter_path).exists() {
+        if full_counter_path == "q" || full_counter_path == "Q" {
+            break;
+        } else if !Path::new(&full_counter_path).exists() {
             println!("error: The counter does not exist!");
         } else {
             counter_handling(full_counter_path)?;
         }
     }
+    Ok(())
 }
 
+// This function takes counters_list as a parameter which contain all the counters available and loop through them to print their names and the counter number
 fn show_counters(counters_list: &mut Vec<String>) -> Result<()> {
     for counter in counters_list {
         let file_path = format!("src/counters/{}{}", counter, ".txt");
@@ -132,12 +149,16 @@ fn show_counters(counters_list: &mut Vec<String>) -> Result<()> {
     }
     Ok(())
 }
+
+// This function takes an existing counter and reset it to 0
 fn reset_counter() -> Result<()> {
     loop {
-        println!("Enter a counter name: ");
+        println!("Enter a counter name (or `q` to go back to the main menu): ");
         let full_counter_path = user_input_for_counter_name();
 
-        if !Path::new(&full_counter_path).exists() {
+        if full_counter_path == "q" || full_counter_path == "Q" {
+            break;
+        } else if !Path::new(&full_counter_path).exists() {
             println!("error: The counter doesn't exist!");
         } else {
             let mut file = File::create(&full_counter_path).with_context(|| {
@@ -151,12 +172,15 @@ fn reset_counter() -> Result<()> {
     Ok(())
 }
 
+// This function takes an existing counter and delete it
 fn delete_counter() -> Result<()> {
     loop {
-        println!("Enter a counter name: ");
+        println!("Enter a counter name (or `q` to go back to the main menu): ");
         let full_counter_path = user_input_for_counter_name();
 
-        if !Path::new(&full_counter_path).exists() {
+        if full_counter_path == "q" || full_counter_path == "Q" {
+            break;
+        } else if !Path::new(&full_counter_path).exists() {
             println!("error: The counter doesn't exist!");
         } else {
             fs::remove_file(&full_counter_path).with_context(|| {
@@ -187,6 +211,7 @@ fn main() {
             .read_line(&mut user_input)
             .expect("error: unable to read the user input");
 
+        // Switch like in rust
         match user_input.as_str().trim() {
             "1" => add_counter(&mut counters_list),
             "2" => select_counter(),
